@@ -1,0 +1,22 @@
+[build]
+  publish = "public"
+
+[[redirects]]
+  from = "/eris"
+  to = "/index.html"
+  status = 200
+
+[[redirects]]
+  from = "/anteprima"
+  to = "/index.html"
+  status = 200
+
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+
+[[headers]]
+  for = "/assets/*.glb"
+  [headers.values]
+    Content-Type = "model/gltf-binary"
