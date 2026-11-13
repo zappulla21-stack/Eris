@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="it">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#efede6">
+  <title>Eris — Happy2 · Studio 3D</title>
+  <link rel="stylesheet" href="/styles.css">
+  <script type="module" src="/vendor/model-viewer.min.js"></script>
+  <script type="module" src="/viewer.js"></script>
+</head>
+<body>
+  <header><a class="wordmark" href="/" aria-label="Eris, pagina iniziale">eris<span>®</span></a><span class="edition">STUDIO 3D / OGGETTO 001</span></header>
+  <main>
+    <section class="intro" aria-labelledby="title">
+      <p class="eyebrow">UN NUOVO PUNTO DI VISTA</p>
+      <h1 id="title">Happy2<span>.</span></h1>
+      <p class="description">Ogni dettaglio, da ogni angolazione.<br>Esplora il modello nel tuo spazio digitale.</p>
+      <div class="object-info"><span>01 — MODELLO INTERATTIVO</span><span>GLB / 3D</span></div>
+    </section>
+    <section class="stage" aria-label="Visualizzatore del modello Happy2">
+      <div class="stage-label"><span class="dot"></span><span id="status" role="status" aria-live="polite">Caricamento del modello…</span></div>
+      <span class="corner-number" aria-hidden="true">001</span>
+      <model-viewer id="model" src="/assets/happy2.glb" alt="Modello 3D Happy2: trascina per esplorarlo da ogni angolazione" camera-controls auto-rotate camera-orbit="0deg 75deg 105%" shadow-intensity="1" exposure="1" interaction-prompt="auto" loading="eager" touch-action="pan-y">
+        <div class="loading" slot="poster" id="loading"><span class="loading-title">Prende forma.</span><p>Caricamento del modello 3D · circa 53 MB</p><div class="track"><div id="progress"></div></div></div>
+        <div slot="progress-bar"></div>
+      </model-viewer>
+      <div class="error" id="error" hidden><h2>Il modello non si è caricato.</h2><p>Controlla la connessione e riprova. Puoi anche scaricare il file e aprirlo in un programma 3D.</p><button id="retry" type="button">Riprova</button></div>
+      <div class="stage-bottom"><span>TRASCINA PER RUOTARE · SCORRI PER LO ZOOM</span><span aria-hidden="true">↗</span></div>
+    </section>
+    <div class="toolbar"><p><span class="small-cross" aria-hidden="true">+</span> Un oggetto. Infinite prospettive.</p><div class="actions"><button id="rotate" type="button" aria-pressed="true" disabled>Ferma rotazione</button><button id="reset" type="button" disabled>Ripristina vista <span aria-hidden="true">↺</span></button><a href="/assets/happy2.glb" download="Happy2.glb">Scarica GLB <span aria-hidden="true">↓</span></a></div></div>
+  </main>
+  <footer><span>ERIS — ESPLORAZIONI DIGITALI</span><span>Usa il mouse, il tocco o i tasti freccia sul modello.</span></footer>
+  <noscript><p class="noscript">Attiva JavaScript per esplorare il modello 3D. <a href="/assets/happy2.glb" download>Scarica il modello Happy2</a>.</p></noscript>
+</body>
+</html>

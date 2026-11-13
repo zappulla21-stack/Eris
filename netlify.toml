@@ -1,0 +1,7 @@
+[build]
+  publish = "public"
+
+[[headers]]
+  for = "/assets/*.glb"
+  [headers.values]
+    Content-Type = "model/gltf-binary"
