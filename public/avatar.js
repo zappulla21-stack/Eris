@@ -3,17 +3,11 @@ import * as THREE from 'three';
 const clamp = THREE.MathUtils.clamp;
 const damp = THREE.MathUtils.damp;
 
-// Registered photo + estimated relief: a bounded 2.5D portrait, not a 360° model.
-// The source pixels carry the facial anatomy, circuitry and original filaments.
+// Image-projected volumetric reconstruction. Unseen surfaces are artistic estimates.
 export async function createAvatar(container) {
-  const loader = new THREE.TextureLoader();
-  const [photo, relief] = await Promise.all([
-    loader.loadAsync('/assets/eris-portrait.png'),
-    loader.loadAsync('/assets/eris-relief.png')
-  ]);
-  photo.colorSpace = THREE.SRGBColorSpace;
-  photo.minFilter = THREE.LinearFilter;
-  relief.colorSpace = THREE.NoColorSpace;
+  const loader=new THREE.TextureLoader();
+  const [photo,relief]=await Promise.all([loader.loadAsync('/assets/eris-hologram-reference.jpeg'),loader.loadAsync('/assets/eris-hologram-depth.png')]);
+  photo.colorSpace=THREE.SRGBColorSpace;photo.minFilter=THREE.LinearFilter;
   const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: 'low-power' });
   renderer.setPixelRatio(Math.min(devicePixelRatio, 1.7));
   renderer.outputColorSpace = THREE.SRGBColorSpace;
@@ -22,113 +16,146 @@ export async function createAvatar(container) {
   const scene = new THREE.Scene();
   const camera = new THREE.OrthographicCamera(-3,3,2,-2,.1,30);
   camera.position.set(0,0,8);
-  const portrait = new THREE.Group();
-  portrait.position.set(.04,.05,0);
-  scene.add(portrait);
-  const maskCanvas=document.createElement('canvas');
-  maskCanvas.width=relief.image.width;maskCanvas.height=relief.image.height;
-  const maskContext=maskCanvas.getContext('2d',{willReadFrequently:true});
-  maskContext.drawImage(relief.image,0,0);
-  const {data}=maskContext.getImageData(0,0,maskCanvas.width,maskCanvas.height);
-  const geometry=new THREE.PlaneGeometry(3.6,3.6,210,210);
-  const coordinates=geometry.attributes.uv;
-  const positions=geometry.attributes.position;
-  const masks=new Float32Array(positions.count*3);
-  for(let i=0;i<positions.count;i++){
-    const x=Math.round(coordinates.getX(i)*(maskCanvas.width-1));
-    const y=Math.round((1-coordinates.getY(i))*(maskCanvas.height-1));
-    const k=(y*maskCanvas.width+x)*4;
-    masks[i*3]=data[k]/255;masks[i*3+1]=data[k+1]/255;masks[i*3+2]=data[k+2]/255;
-    positions.setZ(i,(data[k]/255)*.64);
+  const portrait = new THREE.Group();scene.add(portrait);
+  const uniforms={uPhoto:{value:photo},uRelief:{value:relief},uTime:{value:0},uScanTime:{value:0},uLight:{value:.65},uDepth:{value:.7},uListening:{value:0},uMouth:{value:0},uSmile:{value:0},uBlink:{value:0},uGaze:{value:new THREE.Vector2()},uInertia:{value:new THREE.Vector3()},uIdle:{value:1}};
+  const mask=document.createElement('canvas');mask.width=relief.image.width;mask.height=relief.image.height;
+  const context=mask.getContext('2d',{willReadFrequently:true});context.drawImage(relief.image,0,0);
+  const pixels=context.getImageData(0,0,mask.width,mask.height).data;
+  const sample=(x,y,c=0)=>pixels[(Math.round(clamp(y,0,1)*(mask.height-1))*mask.width+Math.round(clamp(x,0,1)*(mask.width-1)))*4+c]/255;
+  // Frontal silhouette measured from the supplied reference (y, left, right).
+  const profile=[[0,.345,.655],[.045,.30,.70],[.10,.275,.725],[.18,.255,.745],
+    [.27,.24,.76],[.35,.225,.775],[.42,.222,.783],[.50,.235,.774],
+    [.57,.25,.75],[.64,.285,.716],[.70,.33,.68],[.75,.337,.67],
+    [.77,.34,.665],[.785,.34,.663],[.84,.347,.661],[.90,.325,.687],
+    [.94,.275,.735],[.975,.16,.86],[1,.055,.95]];
+  function bounds(y){
+    for(let i=0;i<profile.length-1;i++){
+      const [a,l,r]=profile[i],[b,ll,rr]=profile[i+1];
+      if(y>=a&&y<=b){const t=(y-a)/(b-a);return [l+(ll-l)*t,r+(rr-r)*t];}
+    }
+    return [.5,.5];
   }
-  geometry.setAttribute('aRelief',new THREE.BufferAttribute(masks,3));
-  geometry.computeVertexNormals();
-  const uniforms={
-    uPhoto:{value:photo},uRelief:{value:relief},uTime:{value:0},uScanTime:{value:0},
-    uLight:{value:.65},uDepth:{value:.7},uListening:{value:0},uMouth:{value:0},uSmile:{value:0},uBlink:{value:0},
-    uGaze:{value:new THREE.Vector2()},uInertia:{value:new THREE.Vector3()},uIdle:{value:1}
-  };
-  const material=new THREE.ShaderMaterial({
-    uniforms,transparent:true,depthWrite:false,side:THREE.DoubleSide,toneMapped:false,
-    vertexShader:`
-      attribute vec3 aRelief;
-      uniform float uTime,uListening,uIdle;
-      uniform vec3 uInertia;
-      varying vec2 vUv;
-      varying vec3 vRelief;
+  // Closed latitude rings join the photographed surface to an estimated rear shell.
+  // Every front UV is registered to the original image, preserving the exact identity.
+  const positions=[],uvs=[],rear=[],indices=[];
+  const rows=144,segments=160;
+  for(let j=0;j<=rows;j++){
+    const y=.0001+j/rows*.9998;
+    const [left,right]=bounds(y),center=(left+right)/2,radius=(right-left)/2;
+    const thickness=y<.76?.43+.13*Math.sin(y/.76*Math.PI):.25+.14*Math.max(0,(y-.85)/.15);
+    for(let i=0;i<=segments;i++){
+      const angle=i/segments*Math.PI*2;
+      const x=center+radius*Math.cos(angle),front=Math.sin(angle)>=0;
+      const section=Math.pow(Math.abs(Math.sin(angle)),.70);
+      const depth=front?section*(thickness+sample(x,y)*.53):section*(-thickness*.86);
+      positions.push((x-.5)*3.6,(.5-y)*3.6,depth);
+      uvs.push(x,1-y);rear.push(front?0:1);
+      if(j<rows&&i<segments){const k=j*(segments+1)+i;indices.push(k,k+segments+1,k+1,k+1,k+segments+1,k+segments+2);}
+    }
+  }
+  // Seal crown and projection base as part of the same mesh.
+  for(const row of [0,rows]){
+    const y=.0001+row/rows*.9998,[l,r]=bounds(y),center=(l+r)/2;
+    const cap=positions.length/3;
+    positions.push((center-.5)*3.6,(.5-y)*3.6,0);uvs.push(center,1-y);rear.push(1);
+    for(let i=0;i<segments;i++){
+      const k=row*(segments+1)+i;
+      if(row===0)indices.push(cap,k+1,k);else indices.push(cap,k,k+1);
+    }
+  }
+  const bodyGeometry=new THREE.BufferGeometry();
+  bodyGeometry.setAttribute('position',new THREE.Float32BufferAttribute(positions,3));
+  bodyGeometry.setAttribute('uv',new THREE.Float32BufferAttribute(uvs,2));
+  bodyGeometry.setAttribute('aRear',new THREE.Float32BufferAttribute(rear,1));bodyGeometry.setIndex(indices);bodyGeometry.computeVertexNormals();
+  const vertexShader=`
+    uniform float uTime,uListening,uIdle,uMouth,uSmile;
+    uniform vec3 uInertia;
+    uniform sampler2D uRelief;
+    attribute float aRear;
+    varying vec2 vUv;varying float vRear;varying vec3 vNormal;
+    void main(){
+      vUv=uv;vRear=aRear;vNormal=normalize(normalMatrix*normal);
+      vec3 p=position;
+      float hair=texture2D(uRelief,uv).g;
+      float wave=sin(uv.y*25.0+uTime*1.3+uv.x*8.0)*(.009*uIdle+.018*uListening);
+      p.x+=hair*(wave+uInertia.x*.10);
+      p.z+=hair*(wave*.8+uInertia.z*.10);
+      vec2 q=vec2(uv.x,1.0-uv.y);
+      float lip=exp(-pow((q.x-.501)/.081,4.0)-pow((q.y-.630)/.035,2.0))*(1.0-aRear);
+      p.y-=lip*uMouth*.018;p.z+=lip*uSmile*.008;
+      gl_Position=projectionMatrix*modelViewMatrix*vec4(p,1.0);
+    }`;
+  const fragmentShader=`
+    uniform sampler2D uPhoto,uRelief;
+    uniform float uTime,uScanTime,uLight,uDepth,uListening,uMouth,uSmile,uBlink;
+    uniform vec2 uGaze;
+    varying vec2 vUv;varying float vRear;varying vec3 vNormal;
+    vec3 source(vec2 p){return texture2D(uPhoto,vec2(p.x,1.0-p.y)).rgb;}
+    vec3 eye(vec2 p,vec2 center,vec2 radius,vec3 color){
+      vec2 q=(p-center)/radius;
+      float socket=1.0-smoothstep(.68,1.05,length(q));
+      color=mix(color,source(p-uGaze*vec2(.0035,.002)*socket),socket);
+      float lid=socket*(1.0-smoothstep(-.08,.05,q.y-(uBlink*2.5-1.25)))*smoothstep(.01,.22,uBlink);
+      return mix(color,source(vec2(p.x,p.y+radius.y*2.15))*.9,lid);
+    }
+    void main(){
+      vec2 p=vec2(vUv.x,1.0-vUv.y);
+      float mx=(p.x-.501)/.094;
+      float my=p.y-(.630+.13*pow(p.x-.501,2.0));
+      float lipWidth=pow(max(0.0,1.0-mx*mx),.65);
+      float aperture=uMouth*.010*lipWidth;
+      vec2 q=p;
+      float localMouth=exp(-pow(mx,4.0)-pow(my/.046,2.0));
+      q.y-=sign(my)*aperture*localMouth;
+      q.y+=uSmile*.005*pow(min(1.0,abs(mx)),1.8)*localMouth;
+      vec3 color=source(q);
+      color=eye(p,vec2(.368,.385),vec2(.070,.034),color);
+      color=eye(p,vec2(.631,.385),vec2(.070,.034),color);
+      float opening=(1.0-smoothstep(aperture-.0012,aperture+.0012,abs(my)))*lipWidth*smoothstep(.04,.2,uMouth);
+      color=mix(color,vec3(.002,.009,.014),opening*.96);
+      // Back surface reuses circuit/hair detail, never a second mirrored face.
+      vec3 back=source(vec2(.34+p.x*.32,.805+p.y*.175));
+      float detail=dot(back,vec3(.2126,.7152,.0722));
+      back=mix(back*.45,vec3(.15,.55,.68)*detail,.55);
+      color=mix(color,back,smoothstep(.05,.95,vRear));
+      float scan=.95+.05*sin(gl_FragCoord.y*2.3+uScanTime*.6);
+      float fresnel=pow(1.0-abs(vNormal.z),3.0);
+      color*=mix(.62,1.2,uLight)*scan;
+      color+=vec3(.025,.12,.16)*fresnel*uDepth;
+      float sweep=exp(-pow((vUv.y-fract(uScanTime*.09))/.009,2.0));
+      color+=vec3(.04,.24,.30)*sweep*uDepth*.36;
+      color+=vec3(.003,.015,.02)*uListening;
+      float edge=smoothstep(0.0,.045,vUv.x)*smoothstep(0.0,.035,vUv.y);
+      gl_FragColor=vec4(color,(.91+.07*abs(vNormal.z))*edge);
+      #include <colorspace_fragment>
+    }`;
+  const material=new THREE.ShaderMaterial({uniforms,vertexShader,fragmentShader,side:THREE.DoubleSide,transparent:true});
+  const body=new THREE.Mesh(bodyGeometry,material);portrait.add(body);
+  // Preserve the source filaments as separated, depth-displaced translucent hair.
+  const hairGeometry=new THREE.PlaneGeometry(3.6,3.6,128,128);
+  const hp=hairGeometry.attributes.position,huv=hairGeometry.attributes.uv;
+  for(let i=0;i<hp.count;i++){
+    const x=huv.getX(i),y=1-huv.getY(i);
+    hp.setZ(i,.04+sample(x,y)*.5+sample(x,y,1)*Math.sin(y*28+x*16)*.09);
+  }
+  hairGeometry.setAttribute('aRear',new THREE.Float32BufferAttribute(new Float32Array(hp.count),1));
+  hairGeometry.computeVertexNormals();
+  const hairMaterial=new THREE.ShaderMaterial({uniforms,vertexShader,transparent:true,depthWrite:false,side:THREE.DoubleSide,
+    fragmentShader:`uniform sampler2D uPhoto,uRelief;uniform float uLight,uScanTime;varying vec2 vUv;
       void main(){
-        vUv=uv;vRelief=aRelief;
-        vec3 p=position;
-        float freeHair=pow(aRelief.g,1.5);
-        float wave=sin(uv.y*29.0+uTime*1.35+uv.x*5.0)*.008*uIdle;
-        wave+=sin(uv.y*35.0-uTime*3.1+uv.x*7.0)*uListening*.022;
-        p.x+=freeHair*(uInertia.x*.14+wave);
-        p.y+=freeHair*(uInertia.y*.11+wave*.65);
-        p.z+=freeHair*(uInertia.z*.14+cos(uv.y*20.0+uTime*1.4)*(.005*uIdle+.012*uListening));
-        gl_Position=projectionMatrix*modelViewMatrix*vec4(p,1.0);
-      }`,
-    fragmentShader:`
-      uniform sampler2D uPhoto,uRelief;
-      uniform float uTime,uScanTime,uLight,uDepth,uListening,uMouth,uSmile,uBlink;
-      uniform vec2 uGaze;
-      varying vec2 vUv;
-      varying vec3 vRelief;
-      float lum(vec3 c){return dot(c,vec3(.2126,.7152,.0722));}
-      vec4 source(vec2 p){return texture2D(uPhoto,vec2(p.x,1.0-p.y));}
-      // The eye remains part of the photo: move its pixels inside the socket.
-      vec3 eye(vec2 p,vec2 center,vec2 radius,vec3 color){
-        vec2 q=(p-center)/radius;
-        float socket=1.0-smoothstep(.68,1.05,length(q));
-        vec2 shift=uGaze*vec2(.0045,.0030)*socket;
-        vec3 moved=source(p-shift).rgb;
-        color=mix(color,moved,socket);
-        float eyelid=1.0-smoothstep(-.08,.05,q.y-(uBlink*2.5-1.25));
-        vec3 skin=source(vec2(p.x,p.y+radius.y*2.15)).rgb;
-        float closure=socket*eyelid*smoothstep(.01,.22,uBlink);
-        color=mix(color,skin*.90,closure);
-        float seam=.24*max(0.0,1.0-q.x*q.x);
-        float crease=exp(-pow((q.y-seam)/.032,2.0))*socket*pow(uBlink,8.0);
-        return color*(1.0-crease*.72);
-      }
-      void main(){
-        vec2 p=vec2(vUv.x,1.0-vUv.y);
-        vec2 samplePoint=p;
-        float mx=(p.x-.688)/.047;
-        float mouthLine=.586-.10*(p.x-.688);
-        float my=p.y-mouthLine;
-        float lipWidth=pow(max(0.0,1.0-mx*mx),.65);
-        float aperture=uMouth*.012*lipWidth;
-        float localMouth=exp(-pow(mx,4.0))*exp(-pow(my/.046,2.0));
-        samplePoint.y-=sign(my)*aperture*localMouth;
-        samplePoint.y+=uSmile*.006*pow(min(1.0,abs(mx)),1.8)*localMouth;
-        vec4 original=source(samplePoint);
-        vec3 color=original.rgb;
-        float opening=(1.0-smoothstep(aperture-.0012,aperture+.0012,abs(my)))*lipWidth*smoothstep(.04,.2,uMouth);
-        color=mix(color,vec3(.002,.009,.014),opening*.96);
-        color=eye(p,vec2(.632,.377),vec2(.057,.030),color);
-        color=eye(p,vec2(.738,.397),vec2(.020,.028),color);
-        float brightness=lum(original.rgb);
-        float silhouette=texture2D(uRelief,vUv).b;
-        float alpha=max(smoothstep(.002,.045,brightness),silhouette*.95);
-        // Dissolve the photograph's cropped edges into the projected volume.
-        float bounds=smoothstep(0.0,.085,vUv.x)*smoothstep(0.0,.10,vUv.y);
-        bounds*=smoothstep(0.0,.035,1.0-vUv.y)*smoothstep(0.0,.035,1.0-vUv.x);
-        alpha*=bounds;
-        if(alpha<.005)discard;
-        float scan=.974+.026*sin(gl_FragCoord.y*2.4+uScanTime*.55);
-        float faceLight=mix(.87,1.0,silhouette);
-        color*=mix(.62,1.38,uLight)*scan*faceLight;
-        color=mix(color,vec3(lum(color)*.30,lum(color)*.94,lum(color)*1.18),.065);
-        float travel=exp(-pow((vUv.y-fract(uScanTime*.065))/.012,2.0));
-        color+=vec3(.03,.14,.18)*travel*uDepth*.10;
-        color+=vec3(.004,.018,.022)*uListening*silhouette;
-        gl_FragColor=vec4(color,alpha*.985);
+        vec3 c=texture2D(uPhoto,vUv).rgb;
+        float hair=texture2D(uRelief,vUv).g;
+        float bright=max(c.r,max(c.g,c.b));
+        float solid=texture2D(uRelief,vUv).b;
+        float alpha=hair*smoothstep(.014,.11,bright)*(1.0-solid);
+        alpha*=smoothstep(0.0,.035,vUv.x)*smoothstep(0.0,.025,vUv.y)*smoothstep(0.0,.025,1.0-vUv.y);
+        if(alpha<.01)discard;
+        c*=mix(.62,1.2,uLight)*(.98+.02*sin(gl_FragCoord.y*2.3+uScanTime*.6));
+        gl_FragColor=vec4(c,alpha);
         #include <colorspace_fragment>
-      }`
-  });
-  const face=new THREE.Mesh(geometry,material);face.renderOrder=3;portrait.add(face);
-
-  // Soft light behind the subject supplies depth without washing out the photo.
+      }`});
+  const hair=new THREE.Mesh(hairGeometry,hairMaterial);portrait.add(hair);
+  // A soft projection halo grounds the volumetric bust.
   const glowUniforms={uDepth:{value:.7},uListening:{value:0}};
   const glowMaterial=new THREE.ShaderMaterial({
     uniforms:glowUniforms,transparent:true,depthWrite:false,blending:THREE.AdditiveBlending,
@@ -177,8 +204,8 @@ export async function createAvatar(container) {
     const rect=container.getBoundingClientRect();
     state.gaze.set(clamp((event.clientX-rect.left)/rect.width*2-1,-1,1),clamp((event.clientY-rect.top)/rect.height*2-1,-1,1));
     if(pointer!==event.pointerId)return;
-    yaw=clamp(yaw+(event.clientX-lastX)*.0027,-.27,.27);
-    pitch=clamp(pitch+(event.clientY-lastY)*.0012,-.09,.09);
+    yaw+=(event.clientX-lastX)*.008;
+    pitch=clamp(pitch+(event.clientY-lastY)*.004,-.6,.6);
     lastX=event.clientX;lastY=event.clientY;
   };
   const onDown=event=>{if(event.button!==0||pointer!==null)return;pointer=event.pointerId;lastX=event.clientX;lastY=event.clientY;container.setPointerCapture(event.pointerId);container.classList.add('dragging');};
@@ -187,10 +214,10 @@ export async function createAvatar(container) {
   const onWheel=event=>{event.preventDefault();zoom=clamp(zoom-event.deltaY*.0007,.85,1.35);};
   const onKey=event=>{
     const keys=['ArrowLeft','ArrowRight','ArrowUp','ArrowDown','+','-'];if(!keys.includes(event.key))return;event.preventDefault();
-    if(event.key==='ArrowLeft')yaw=clamp(yaw-.045,-.27,.27);
-    if(event.key==='ArrowRight')yaw=clamp(yaw+.045,-.27,.27);
-    if(event.key==='ArrowUp')pitch=clamp(pitch-.025,-.09,.09);
-    if(event.key==='ArrowDown')pitch=clamp(pitch+.025,-.09,.09);
+    if(event.key==='ArrowLeft')yaw-=.15;
+    if(event.key==='ArrowRight')yaw+=.15;
+    if(event.key==='ArrowUp')pitch=clamp(pitch-.08,-.6,.6);
+    if(event.key==='ArrowDown')pitch=clamp(pitch+.08,-.6,.6);
     if(event.key==='+')zoom=clamp(zoom+.08,.85,1.35);
     if(event.key==='-')zoom=clamp(zoom-.08,.85,1.35);
   };
@@ -215,7 +242,7 @@ export async function createAvatar(container) {
     if(disposed)return;raf=requestAnimationFrame(render);
     const dt=Math.min(Math.max((now-last)/1000,.001),.035);last=now;if(!visible||!inView)return;
     elapsed+=dt;if(state.spontaneous)ambientTime+=dt;if(auto)autoPhase+=dt*.40;
-    actualYaw=damp(actualYaw,clamp(yaw+(auto?Math.sin(autoPhase)*.13:0),-.27,.27),6,dt);
+    actualYaw=damp(actualYaw,yaw+autoPhase,6,dt);
     portrait.rotation.y=actualYaw;
     portrait.rotation.x=damp(portrait.rotation.x,pitch+(state.listening?-.015:0),5,dt);
     portrait.position.y=.05+(state.spontaneous?Math.sin(elapsed*.65)*.004:0);
@@ -249,9 +276,9 @@ export async function createAvatar(container) {
   raf=requestAnimationFrame(render);
   return {
     state,
-    reset(){yaw=pitch=0;zoom=1;autoPhase=0;},
+    reset(){yaw=actualYaw=oldYaw=pitch=autoPhase=0;zoom=1;portrait.rotation.set(0,0,0);camera.zoom=1;camera.updateProjectionMatrix();spring.set(0,0,0);velocity.set(0,0,0);state.force.set(0,0,0);},
     express(){expressionStart=elapsed;},
-    setRotation(value){auto=value;autoPhase=0;},
+    setRotation(value){yaw+=autoPhase;auto=value;autoPhase=0;},
     setLight(value){uniforms.uLight.value=clamp(value,0,1);},
     setDepth(value){uniforms.uDepth.value=glowUniforms.uDepth.value=particleUniforms.uDepth.value=clamp(value,0,1);floorMaterials.forEach((m,i)=>{m.opacity=value*(i===1?.46:.21);});floorGlowUniforms.uDepth.value=value;},
     impulse(x,y,z){if(![x,y,z].every(Number.isFinite))return;state.force.add(new THREE.Vector3(clamp(x,-3,3),clamp(y,-3,3),clamp(z,-3,3)));state.force.clampLength(0,4);},

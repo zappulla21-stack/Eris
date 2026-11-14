@@ -5,24 +5,23 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#050c12">
   <title>Eris — La tua presenza olografica</title>
-  <meta name="description" content="Il volto di Eris dalla tua immagine: un ologramma animato con sguardo vivo, voce, capelli reattivi e luci di profondità.">
-  <link rel="preload" href="/assets/eris-portrait.png" as="image">
+  <meta name="description" content="Il ritratto originale di Eris ricostruito in volume e animato come ologramma 3D, con sguardo, voce e capelli reattivi.">
   <link rel="stylesheet" href="/styles.css">
   <script type="importmap">{"imports":{"three":"/vendor/three/three.module.js"}}</script>
   <script type="module" src="/viewer.js"></script>
 </head>
 <body>
-  <header><a class="wordmark" href="/" aria-label="Eris, pagina iniziale"><span class="brand-orbit" aria-hidden="true"></span>eris<span class="brand-period">.</span></a><span class="edition">ASSISTENTE VIRTUALE / PRESENZA OLOGRAFICA</span><a class="source-link" href="/assets/eris-portrait.png" target="_blank" rel="noopener">La tua immagine <span aria-hidden="true">↗</span></a></header>
+  <header><a class="wordmark" href="/" aria-label="Eris, pagina iniziale"><span class="brand-orbit" aria-hidden="true"></span>eris<span class="brand-period">.</span></a><span class="edition">ASSISTENTE VIRTUALE / PRESENZA OLOGRAFICA</span><a class="source-link" href="/assets/eris-hologram-reference.jpeg" target="_blank" rel="noopener">La tua immagine <span aria-hidden="true">↗</span></a></header>
   <main>
     <div class="workspace">
-      <section class="stage" aria-label="Ritratto olografico interattivo di Eris">
+      <section class="stage" aria-label="Modello 3D olografico interattivo di Eris">
         <div class="stage-wash" aria-hidden="true"></div>
         <div class="stage-heading"><p class="eyebrow">PRESENZA / 01</p><h1>Eris<span>.</span></h1><p>Una voce. Uno sguardo.<br>La tua assistente.</p></div>
-        <div id="viewport" tabindex="0" role="img" aria-label="Eris animata dalla foto originale. Trascina orizzontalmente o usa le frecce per orientare l’ologramma con parallasse. Rotella o tasti più e meno per lo zoom."></div>
-        <div class="portrait-label" aria-hidden="true"><span class="registration"></span>IDENTITÀ OLOGRAFICA<br><span class="label-sub">DAL TUO RIFERIMENTO ORIGINALE</span></div>
-        <div class="stage-bottom"><span>TRASCINA PER ORIENTARE <span class="separator">/</span> SCORRI PER LO ZOOM</span><button id="reset" type="button" disabled>Ripristina vista <span aria-hidden="true">↺</span></button></div>
-        <div class="loading" id="loading"><span class="loading-orbit" aria-hidden="true"></span><span>La luce prende forma.</span><p>Preparazione del ritratto di Eris…</p></div>
-        <div class="error" id="error" hidden><img src="/assets/eris-portrait.png" alt="Eris nella foto originale: volto cibernetico con capelli filamentosi azzurri"><div><h2>L’ologramma non è disponibile.</h2><p>La foto resta visibile. Per l’animazione, riprova con WebGL attivo e una connessione disponibile.</p><button id="retry" type="button">Riprova</button></div></div>
+        <div id="viewport" tabindex="0" role="img" aria-label="Modello tridimensionale animato di Eris. Trascina o usa le frecce per ruotarlo a 360 gradi. Rotella o tasti più e meno per lo zoom."></div>
+        <div class="portrait-label" aria-hidden="true"><span class="registration"></span>IDENTITÀ TRIDIMENSIONALE<br><span class="label-sub">DALLA TUA IMMAGINE / OLOGRAMMA 3D</span></div>
+        <div class="stage-bottom"><span>RUOTA A 360° <span class="separator">/</span> SCORRI PER LO ZOOM</span><button id="reset" type="button" disabled>Ripristina vista <span aria-hidden="true">↺</span></button></div>
+        <div class="loading" id="loading"><span class="loading-orbit" aria-hidden="true"></span><span>La luce prende forma.</span><p>Preparazione del modello 3D di Eris…</p></div>
+        <div class="error" id="error" hidden><img src="/assets/eris-hologram-reference.jpeg" alt="Eris nel nuovo riferimento: volto frontale metallico, occhi turchesi e circuiti con riflessi corallo"><div><h2>L’ologramma non è disponibile.</h2><p>La foto resta visibile. Per l’animazione, riprova con WebGL attivo e una connessione disponibile.</p><button id="retry" type="button">Riprova</button></div></div>
       </section>
       <aside class="controls" aria-label="Controlli di Eris">
         <div class="presence"><p class="eyebrow">LA TUA ASSISTENTE</p><h2>Sono qui<span>.</span></h2><div class="state"><span class="dot"></span><span id="status" role="status" aria-live="polite">Accensione dell’ologramma…</span></div></div>
@@ -30,12 +29,12 @@
         <div class="secondary-controls"><button id="motion" type="button" aria-pressed="false" disabled>Attiva movimento</button><button id="rotate" type="button" aria-pressed="false" disabled>Avvia rotazione</button></div>
         <p class="sensor-status" id="sensor-status" role="status" aria-live="polite"></p>
         <div class="settings"><p class="section-label">LA LUCE</p><label for="light"><span>Luce del volto</span><output id="light-value">65%</output></label><input id="light" type="range" min="20" max="100" value="65" disabled><label for="depth"><span>Luce di profondità</span><output id="depth-value">70%</output></label><input id="depth" type="range" min="0" max="100" value="70" disabled><p class="section-label expression-label">LA PRESENZA</p><label class="motion-setting"><input id="animate" type="checkbox" checked disabled> Animazioni spontanee</label><button id="speak" type="button" disabled>Prova voce e bocca <span aria-hidden="true">↗</span></button><button id="express" type="button" disabled>Prova sguardo e sorriso <span aria-hidden="true">↗</span></button></div>
-        <p class="portrait-note">Il tuo ritratto, animato con profondità e parallasse. L’orientamento è limitato per preservare il volto della foto.</p>
+        <p class="portrait-note">Il tuo nuovo riferimento, in volume: volto frontale, occhi turchesi e circuiti sulla pelle metallica. Trascina per ruotare l’ologramma. Lati e retro sono ricostruiti e approssimativi.</p>
       </aside>
     </div>
     <section class="console" aria-label="Comandi per Eris"><div class="console-caption"><span class="wave-icon" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></span><div><p class="section-label">IN CONTATTO CON TE</p><p id="reply" role="status" aria-live="polite">Scrivi o pronuncia «ciao», «ruota», «fermati» o «luce morbida».</p></div></div><form id="command-form"><label for="command" class="sr-only">Scrivi un comando per Eris</label><div class="command-row"><input id="command" name="command" maxlength="180" placeholder="Eris, ciao…" autocomplete="off" required disabled><button id="send" type="submit" aria-label="Invia comando" disabled>↗</button></div></form></section>
   </main>
   <footer><span>ERIS / LUCE CHE DIVENTA PRESENZA</span><p id="permission-note">Comandi locali, senza chat AI. Microfono e sensori solo su richiesta. Il riconoscimento vocale del browser può usare servizi online.</p></footer>
-  <noscript><div class="noscript"><img src="/assets/eris-portrait.png" alt="Il volto originale di Eris"><p>Attiva JavaScript per animare l’ologramma e interagire con Eris.</p></div></noscript>
+  <noscript><div class="noscript"><img src="/assets/eris-hologram-reference.jpeg" alt="Il volto originale di Eris"><p>Attiva JavaScript per animare l’ologramma e interagire con Eris.</p></div></noscript>
 </body>
 </html>

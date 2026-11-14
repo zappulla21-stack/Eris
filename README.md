@@ -1,33 +1,31 @@
-# Eris — presenza olografica
+# Eris — presenza olografica 3D
 
-L’interfaccia presenta il volto della foto fornita dall’utente, con una resa olografica azzurra, dissolvenza dei bordi, una base di proiezione, particelle e illuminazione regolabile. Il precedente volto geometrico stilizzato è stato sostituito dal ritratto originale per mantenere profilo, proporzioni, occhi, circuiti e capelli riconoscibili.
+Eris è un ologramma animato ricostruito dal nuovo riferimento frontale fornito, realizzato con Three.js e servito come sito statico da `public`. Il volto metallico frontale, gli occhi turchesi, i circuiti e i riflessi corallo usano direttamente i pixel del riferimento `public/assets/eris-hologram-reference.jpeg`.
 
-## Resa del ritratto
+## Modello e animazioni
 
-Il ritratto è **2.5D**, con un rilievo stimato e un orientamento limitato a circa ±15° in orizzontale e ±5° in verticale. La foto viene proiettata su una superficie con profondità: non è un modello anatomico ricostruito a 360°. Questo limite è indicato anche nell’interfaccia. Il trascinamento, le frecce e la rotazione automatica orientano la proiezione; rotella e tasti `+`/`-` regolano lo zoom.
+`public/avatar.js` genera una superficie volumetrica ad anelli a partire dal contorno del soggetto. La superficie visibile è mappata sulle coordinate della fotografia originale, con profondità stimata da `eris-hologram-depth.png`. Un guscio posteriore completa il volume e permette la rotazione a 360°, senza i precedenti limiti di orientamento. I lati e il retro sono approssimazioni artistiche: le superfici non visibili riutilizzano dettagli dei cavi del collo della foto senza ripetere un secondo volto. Non è una scansione anatomica e la fedeltà è massima dalla vista originale; durante la rotazione sono possibili stiramenti della texture.
 
-`public/assets/eris-portrait.png` conserva i pixel del riferimento originale a 740 × 740, convertito dall’allegato AVIF senza un’ulteriore compressione con perdita. `public/assets/eris-relief.png` contiene le maschere di rilievo, mobilità dei capelli e silhouette. Si rigenera con `python scripts/prepare-portrait.py`, che usa solo la libreria standard di Python. Le maschere sono registrate su questa specifica foto e vanno ridisegnate per un soggetto diverso.
+I filamenti periferici del nuovo riferimento sono conservati su una superficie trasparente separata, con filamenti distribuiti in profondità e deformazione reattiva. Le animazioni di occhi, palpebre e bocca agiscono localmente sulla texture e sulla superficie, senza sostituire i tratti con elementi geometrici estranei. Scansioni luminose, bordi azzurri, particelle e base di proiezione completano l’effetto olografico.
 
-`public/avatar.js` usa Three.js, servito localmente con licenza MIT, per la geometria, gli shader e le interazioni. La bocca e lo sguardo vengono animati deformando localmente i pixel della foto; le palpebre usano il dettaglio della superficie circostante. Il pulsante «Prova sguardo e sorriso» funziona anche senza sintesi vocale. Il movimento della bocca durante la voce è ritmico, senza allineamento fonetico. La risoluzione e le parti del volto disponibili restano quelle dell’immagine originale.
+Il trascinamento e le frecce ruotano il modello; la rotazione automatica compie giri completi a 360°. Rotella e tasti `+`/`-` regolano lo zoom, mentre «Ripristina vista» torna alla posizione iniziale. Il movimento verticale è limitato per mantenere il busto leggibile. Su touch, il trascinamento all’interno della scena controlla il modello; la pagina scorre dalle aree circostanti.
 
-I capelli della foto si deformano con una maschera che mantiene fermi i punti di ancoraggio. Una molla smorzata riceve impulsi dall’orientamento e dai sensori; l’ascolto introduce un’ondulazione aggiuntiva. La luce del volto regola l’esposizione del ritratto, mentre la luce di profondità controlla l’alone posteriore, le particelle e la base di proiezione. Le animazioni spontanee seguono la preferenza di movimento ridotto e possono essere disattivate. Le interazioni richieste esplicitamente restano attive. Il rendering si sospende quando la pagina è nascosta o il ritratto è fuori schermo.
+Occhi, palpebre, labbra e capelli si animano: lo sguardo segue il puntatore, i filamenti reagiscono all’inerzia e all’ascolto, e la bocca si apre durante la sintesi vocale. Il movimento della bocca è ritmico, senza sincronizzazione fonetica. «Prova sguardo e sorriso» funziona anche senza voce. I cursori regolano l’illuminazione del volto e quella di profondità.
+
+Le animazioni spontanee rispettano la preferenza di movimento ridotto e possono essere disattivate. Il rendering si sospende quando la pagina è nascosta o la scena è fuori schermo. I comandi richiesti esplicitamente restano disponibili.
 
 ## Comandi e telefono
 
 Sono disponibili comandi locali scritti e vocali: `ciao`, `ruota`, `fermati`, `ripristina`, `luce morbida`, `luce intensa`, `ascolta` e `sorridi`. Non è collegata una chat AI. Le risposte vocali usano SpeechSynthesis e una voce italiana, quando installata; in assenza di sintesi restano leggibili.
 
-Il riconoscimento vocale usa SpeechRecognition/webkitSpeechRecognition in italiano. Il microfono viene richiesto solo dal pulsante, si ferma dopo un risultato o un errore e ha un limite di 20 secondi. Sono gestiti permessi negati, assenza di voce, assenza di microfono e problemi di rete. Il browser può usare un servizio online per il riconoscimento. I comandi scritti sono sempre l’alternativa disponibile.
+Il microfono e i sensori vengono richiesti solo dai relativi pulsanti. Il riconoscimento vocale del browser può usare servizi online. Microfono, sintesi e sensori si interrompono quando la pagina passa in secondo piano. La compatibilità dipende dal browser e dal dispositivo.
 
-«Attiva movimento» richiede il permesso DeviceMotion dove necessario e ascolta l’accelerometro in un contesto HTTPS. Sono gestiti anche i dati con gravità e l’orientamento orizzontale. In assenza di dati viene mostrato un messaggio e i sensori vengono disattivati. Voce, microfono e sensori si interrompono quando la pagina passa in secondo piano. Non è necessario agitare energicamente il telefono.
+Se WebGL non è disponibile, compare il ritratto originale con un messaggio e un pulsante per riprovare. Il riferimento è sempre accessibile dal collegamento nell’intestazione. La fotografia e la maschera di rilievo sono risorse attive della ricostruzione. Il precedente GLB resta disponibile come risorsa separata e non viene caricato.
 
-Se WebGL o il caricamento delle risorse non sono disponibili, viene mostrata la foto con un messaggio e un pulsante per riprovare. L’originale è anche accessibile dal collegamento nell’intestazione.
+La maschera di profondità e dei filamenti si rigenera con `python scripts/prepare-reference.py`. Il profilo misurato del nuovo riferimento è riportato nello script e in `public/avatar.js`; entrambi vanno aggiornati se cambia il soggetto. Le coordinate di occhi e labbra negli shader sono registrate sulla stessa immagine. Le immagini e le maschere del precedente ritratto restano come risorse storiche e non vengono caricate dalla scena.
 
-## Pubblicazione e verifiche
+## Sviluppo e verifiche
 
 Netlify pubblica `public`, senza comando di build. Restano disponibili `/eris` e `/anteprima`. Per lo sviluppo locale: `netlify dev --port 8889`.
 
-Verificati con Chromium/Playwright: caricamento degli shader e delle immagini, comandi, luci, orientamento, ripristino, tastiera, layout mobile a 390 px senza scorrimento orizzontale, movimento ridotto e fallback senza WebGL. Un confronto del rendering neutro con la foto ha confermato la conservazione dei dettagli del volto. Le prove sui pixel hanno verificato cambiamenti locali sulle labbra e sugli occhi, il movimento dei capelli con il volto fermo e la parallasse durante l’orientamento, senza errori JavaScript o shader.
-
-Riconoscimento, sintesi e accelerometro sono stati verificati con API simulate, inclusi ascolto, parlato, permessi negati, arresto e dati dei sensori. Voce, permessi nativi e sensori richiedono ancora una prova su un telefono fisico.
-
-Il GLB e il visualizzatore precedenti restano nel repository come risorse originali; non vengono caricati dalla nuova esperienza.
+Verificati in Chromium con Playwright: caricamento WebGL senza errori JavaScript o shader, rotazione automatica, ripristino, espressione, controllo da tastiera, cursore della luce e layout a 390 px senza scorrimento orizzontale. Sintassi JavaScript verificata con `node --check`. Voce, permessi e sensori nativi richiedono una prova su un dispositivo fisico.
