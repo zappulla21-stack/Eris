@@ -29,3 +29,9 @@ La maschera di profondità e dei filamenti si rigenera con `python scripts/prepa
 Netlify pubblica `public`, senza comando di build. Restano disponibili `/eris` e `/anteprima`. Per lo sviluppo locale: `netlify dev --port 8889`.
 
 Verificati in Chromium con Playwright: caricamento WebGL senza errori JavaScript o shader, rotazione automatica, ripristino, espressione, controllo da tastiera, cursore della luce e layout a 390 px senza scorrimento orizzontale. Sintassi JavaScript verificata con `node --check`. Voce, permessi e sensori nativi richiedono una prova su un dispositivo fisico.
+
+## Download del modello
+
+I collegamenti «Scarica .GLB» e «Scarica .FBX» forniscono `public/assets/eris-hologram.glb` e `public/assets/eris-hologram.fbx`, anche quando WebGL non è disponibile. Entrambi includono busto, filamenti con trasparenza, texture incorporate e un leggero ciclo di movimento. Il retro mantiene i dettagli ricostruiti dei circuiti. Gli shader di scansione, le particelle, il controllo vocale e le deformazioni interattive di occhi e bocca restano specifici del visualizzatore web; i file usano materiali portabili e non includono un rig facciale.
+
+Per rigenerare gli asset, con Blender 4.3 e Node disponibili: `blender --background --python scripts/export-model.py`. Lo script usa `public/avatar-geometry.js`, condiviso con il visualizzatore, per mantenere identiche le geometrie esportate e online. Non serve Blender per usare il sito o scaricare i file.

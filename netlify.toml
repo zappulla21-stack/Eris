@@ -20,3 +20,14 @@
   for = "/assets/*.glb"
   [headers.values]
     Content-Type = "model/gltf-binary"
+
+[[headers]]
+  for = "/assets/eris-hologram.glb"
+  [headers.values]
+    Content-Disposition = 'attachment; filename="Eris.glb"'
+
+[[headers]]
+  for = "/assets/eris-hologram.fbx"
+  [headers.values]
+    Content-Type = "application/octet-stream"
+    Content-Disposition = 'attachment; filename="Eris.fbx"'
